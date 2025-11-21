@@ -8,7 +8,9 @@ using Common.Logging;
 using Microsoft.Office.Interop.Outlook;
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
+
 
 namespace DigitalZenWorks.Email.ToolKit
 {
@@ -20,7 +22,7 @@ namespace DigitalZenWorks.Email.ToolKit
 		private static readonly ILog Log = LogManager.GetLogger(
 			System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
-		private static readonly OutlookAccount InternalInstance = new ();
+		private static readonly OutlookAccount InternalInstance = new();
 
 		private readonly Application application;
 		private readonly NameSpace session;
@@ -37,7 +39,7 @@ namespace DigitalZenWorks.Email.ToolKit
 		/// </summary>
 		private OutlookAccount()
 		{
-			application = new ();
+			application = CreateOutlookApplicationWithTimeout(); //等待10s
 
 			session = application.Session;
 		}
@@ -159,7 +161,7 @@ namespace DigitalZenWorks.Email.ToolKit
 		}
 
 		/// <summary>
-		/// Removes a store from the session.
+		/// 实现移除Store方法
 		/// </summary>
 		/// <param name="path">The path to the pst file.</param>
 		/// <returns>remove result.</returns>
@@ -195,7 +197,7 @@ namespace DigitalZenWorks.Email.ToolKit
 		/// or not.</param>
 		public void MergeFolders(bool dryRun)
 		{
-			OutlookStore outlookStorage = new (this);
+			OutlookStore outlookStorage = new(this);
 			uint totalFolders = 0;
 			int totalStores = session.Stores.Count;
 
@@ -219,7 +221,7 @@ namespace DigitalZenWorks.Email.ToolKit
 		/// operation.</returns>
 		public async Task MergeFoldersAsync(bool dryRun)
 		{
-			OutlookStore outlookStorage = new (this);
+			OutlookStore outlookStorage = new(this);
 			uint totalFolders = 0;
 			int totalStores = session.Stores.Count;
 
@@ -244,7 +246,7 @@ namespace DigitalZenWorks.Email.ToolKit
 		/// folder.</param>
 		public void RemoveDuplicates(bool dryRun, bool flush)
 		{
-			OutlookStore outlookStorage = new (this);
+			OutlookStore outlookStorage = new(this);
 			int total = session.Stores.Count;
 
 			for (int index = 1; index <= total; index++)
@@ -266,7 +268,7 @@ namespace DigitalZenWorks.Email.ToolKit
 		/// operation.</returns>
 		public async Task RemoveDuplicatesAsync(bool dryRun, bool flush)
 		{
-			OutlookStore outlookStorage = new (this);
+			OutlookStore outlookStorage = new(this);
 			int total = session.Stores.Count;
 
 			for (int index = 1; index <= total; index++)
@@ -315,6 +317,45 @@ namespace DigitalZenWorks.Email.ToolKit
 			}
 
 			return removedFolders;
+		}
+
+		public static Application CreateOutlookApplicationWithTimeout(int timeoutMilliseconds = 10000)
+		{
+			Application outlookApp = null;
+			System.Exception threadException = null;
+			using var doneEvent = new ManualResetEvent(false);
+
+			var thread = new Thread(() =>
+			{
+				try
+				{
+					Log.Info("============begin to new application=======");
+					outlookApp = new Application();
+					Log.Info("==========end to new application============");
+				}
+				catch (System.Exception ex)
+				{
+					threadException = ex;
+				}
+				finally
+				{
+					doneEvent.Set();
+				}
+			});
+			thread.SetApartmentState(ApartmentState.STA);
+			thread.Start();
+
+			bool completed = doneEvent.WaitOne(timeoutMilliseconds);
+			if (!completed)
+			{
+				Log.Error("outlook start timeout");
+				throw new TimeoutException("outlook start timeout");
+			}
+			if (threadException != null)
+			{
+				throw threadException;
+			}
+			return outlookApp;
 		}
 	}
 }

@@ -38,7 +38,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 			System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
 		private static readonly ResourceManager StringTable =
-			new ("DigitalZenWorks.Email.ToolKit.Application.Resources",
+			new("DigitalZenWorks.Email.ToolKit.Application.Resources",
 				Assembly.GetExecutingAssembly());
 
 		/// <summary>
@@ -58,7 +58,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 				List<Command> commands = GetCommands();
 
 				CommandLineInstance commandLine =
-					new (commands, arguments, InferCommand);
+					new(commands, arguments, InferCommand);
 
 				commandLine.UseLog = true;
 				commandLine.UsageStatement =
@@ -81,10 +81,23 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 						OutlookAccount outlookAccount =
 							OutlookAccount.Instance;
 					}
+					catch (TypeInitializationException ex)
+					{
+						Log.Error("New outlook account object failed, outlook start timeout.");
+						Log.Error(ex.ToString());
+						if (ex.InnerException is TimeoutException timeoutEx)
+						{
+							string message = "Note: This may also happen if this " +
+							"application and Outlook are running at " +
+							"different privilege levels (Such as one of " +
+							"them running as Administrator";
+							Log.Error(message);
+						}
+						return -1;
+					}
 					catch (COMException exception)
 					{
-						string message = "Unable to Connect to Outlook. " +
-							"Is Outlook Installed?";
+						string message = "connect outlook has com exception.";
 						Log.Error(message);
 
 						message = "Note: This may also happen if this " +
@@ -94,7 +107,14 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 						Log.Error(message);
 						Log.Error(exception.ToString());
 
-						throw;
+						return result;
+					}
+					catch (System.Exception ex)
+					{
+						string message = "Unknown exception, outlook start timeout";
+						Log.Error(message);
+						Log.Error(ex.ToString());
+						return -1;
 					}
 
 					Encoding.RegisterProvider(
@@ -156,7 +176,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 			{
 				Log.Error(exception.ToString());
 
-				throw;
+				return result;
 			}
 
 			return result;
@@ -165,7 +185,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 		private static int Details(Command command)
 		{
 			OutlookAccount outlookAccount = OutlookAccount.Instance;
-			OutlookStore outlookStore = new (outlookAccount);
+			OutlookStore outlookStore = new(outlookAccount);
 
 			string pstFilePath = command.Parameters[0];
 			string entryId = command.Parameters[1];
@@ -244,6 +264,12 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 			bool adjust = command.DoesOptionExist("a", "adjust");
 			bool closeStore = command.DoesOptionExist("c", "close-store");
 
+			if (!closeStore)
+			{
+				closeStore = true;
+				Log.Info("Close store option not specified, defaulting to true");
+			}
+
 			bool success = Migrate.EmlToPst(emlLocation, pstLocation, adjust, closeStore);
 
 			if (success == true)
@@ -258,93 +284,92 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 		{
 			List<Command> commands = [];
 
-			Command help = new ("help");
+			Command help = new("help");
 			help.Description = "Show this information";
 			commands.Add(help);
 
-			CommandOption encoding = new ("e", "encoding", true);
+			CommandOption encoding = new("e", "encoding", true);
 			List<CommandOption> options = [encoding];
 
-			Command dbxToPst = new (
+			Command dbxToPst = new(
 				"dbx-to-pst", options, 1, "Migrate dbx files to pst file");
 			commands.Add(dbxToPst);
 
-			CommandOption adjust = new ("a", "adjust");
-
-			CommandOption closeStore = new ("c", "close-store");
+			CommandOption adjust = new("a", "adjust");
+			CommandOption closeStore = new("c", "close-store");
 
 			options = [adjust, closeStore];
 
-			Command emlToPst = new (
+			Command emlToPst = new(
 				"eml-to-pst", options, 2, "Migrate eml files to pst file");
 			commands.Add(emlToPst);
 
-			CommandOption recurse = new ("r", "recurse");
+			CommandOption recurse = new("r", "recurse");
 			options = [recurse];
 
-			Command listFolders = new (
+			Command listFolders = new(
 				"list-folders",
 				options,
 				1,
 				"List all sub folders of a given store or folder");
 			commands.Add(listFolders);
 
-			Command listIds = new (
+			Command listIds = new(
 				"list-ids",
 				null,
 				1,
 				"List all entry IDs of items in a given folder");
 			commands.Add(listIds);
 
-			CommandOption count = new ("c", "count");
+			CommandOption count = new("c", "count");
 			options = [count];
-			Command listTopSenders = new (
+			Command listTopSenders = new(
 				"list-top-senders",
 				options,
 				1,
 				"List the top senders of a given store");
 			commands.Add(listTopSenders);
 
-			Command listTotalDuplicates = new (
+			Command listTotalDuplicates = new(
 				"list-total-duplicates",
 				null,
 				1,
 				"List all duplicates in a given store");
 			commands.Add(listTotalDuplicates);
 
-			CommandOption dryRun = new ("n", "dryrun");
+			CommandOption dryRun = new("n", "dryrun");
 			options = [dryRun];
 
-			Command mergeFolders = new (
+			Command mergeFolders = new(
 				"merge-folders",
 				options,
 				0,
 				"Merge duplicate Outlook folders");
 			commands.Add(mergeFolders);
 
-			Command mergeStores = new (
+			Command mergeStores = new(
 				"merge-stores", null, 2, "Merge one store into another");
 			commands.Add(mergeStores);
 
-			Command moveFolders = new (
+			Command moveFolders = new(
 				"move-folder", null, 4, "Move one folder to another");
 			commands.Add(moveFolders);
 
-			CommandOption flush = new ("s", "flush");
+			CommandOption flush = new("s", "flush");
 			options = [dryRun, flush];
 
-			Command removeDuplicates = new (
+			Command removeDuplicates = new(
 				"remove-duplicates",
 				options,
 				0,
 				"Merge duplicate Outlook folders");
 			commands.Add(removeDuplicates);
 
-			Command removeEmptyFolders = new (
+			Command removeEmptyFolders = new(
 				"remove-empty-folders", null, 1, "Prune empty folders");
 			commands.Add(removeEmptyFolders);
 
-			Command details = new (
+			Command details = new(
 				"details", null, 2, "Show details of given item");
 			commands.Add(details);
 
@@ -454,7 +479,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 		private static int ListFolders(Command command)
 		{
 			OutlookAccount outlookAccount = OutlookAccount.Instance;
-			OutlookStore outlookStore = new (outlookAccount);
+			OutlookStore outlookStore = new(outlookAccount);
 
 			bool recurse = command.DoesOptionExist("r", "recurse");
 
@@ -484,7 +509,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 		private static int ListIds(Command command)
 		{
 			OutlookAccount outlookAccount = OutlookAccount.Instance;
-			OutlookStore outlookStore = new (outlookAccount);
+			OutlookStore outlookStore = new(outlookAccount);
 
 			string pstFilePath = command.Parameters[0];
 			string folderPath = null;
@@ -509,7 +534,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 		private static int ListTopSenders(Command command)
 		{
 			OutlookAccount outlookAccount = OutlookAccount.Instance;
-			OutlookStore outlookStore = new (outlookAccount);
+			OutlookStore outlookStore = new(outlookAccount);
 
 			string pstFilePath = command.Parameters[0];
 			int count = 25;
@@ -541,7 +566,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 		private static int ListTotalDuplicates(Command command)
 		{
 			OutlookAccount outlookAccount = OutlookAccount.Instance;
-			OutlookStore outlookStore = new (outlookAccount);
+			OutlookStore outlookStore = new(outlookAccount);
 
 			string pstFilePath = command.Parameters[0];
 
@@ -558,7 +583,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 			IDictionary<string, IList<string>> duplicates, bool useLog)
 		{
 			OutlookAccount outlookAccount = OutlookAccount.Instance;
-			OutlookStore outlookStore = new (outlookAccount);
+			OutlookStore outlookStore = new(outlookAccount);
 
 			bool duplicatesFound = false;
 
@@ -575,7 +600,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 					MailItem mailItem =
 						outlookStore.GetMailItemFromEntryId(entryId1);
 
-					OutlookItem outlookItem = new (mailItem);
+					OutlookItem outlookItem = new(mailItem);
 					string synopses = outlookItem.Synopses;
 
 					string message = string.Format(
@@ -643,7 +668,9 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 			string outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss} " +
 				"{Level:u3}] {Message:lj}{NewLine}{Exception}";
 
-			LoggerConfiguration configuration = new ();
+			//打印logFilePath
+			Console.WriteLine("Log file path: " + logFilePath);
+			LoggerConfiguration configuration = new();
 			LoggerSinkConfiguration sinkConfiguration = configuration.WriteTo;
 			sinkConfiguration.Console(
 				LogEventLevel.Verbose,
@@ -665,7 +692,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 			bool dryRun = command.DoesOptionExist("n", "dryrun");
 
 			OutlookAccount outlookAccount = OutlookAccount.Instance;
-			OutlookStore outlookStore = new (outlookAccount);
+			OutlookStore outlookStore = new(outlookAccount);
 
 			if (command.Parameters.Count > 0)
 			{
@@ -686,7 +713,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 		private static async Task<int> MergeStores(Command command)
 		{
 			OutlookAccount outlookAccount = OutlookAccount.Instance;
-			OutlookStore outlookStore = new (outlookAccount);
+			OutlookStore outlookStore = new(outlookAccount);
 
 			string sourcePst = command.Parameters[0];
 			string destinationPst = command.Parameters[1];
@@ -708,7 +735,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 			destinationPath = OutlookFolder.NormalizePath(destinationPath);
 
 			OutlookAccount outlookAccount = OutlookAccount.Instance;
-			OutlookStore outlookStore = new (outlookAccount);
+			OutlookStore outlookStore = new(outlookAccount);
 
 			await outlookStore.MoveFolderAsync(
 				sourcePst,
@@ -732,7 +759,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 			}
 
 			OutlookAccount outlookAccount = OutlookAccount.Instance;
-			OutlookStore outlookStore = new (outlookAccount);
+			OutlookStore outlookStore = new(outlookAccount);
 
 			if (command.Parameters.Count > 0)
 			{
@@ -758,7 +785,7 @@ namespace DigitalZenWorks.Email.ToolKit.Application
 
 			if (command.Parameters.Count > 0)
 			{
-				OutlookStore outlookStore = new (outlookAccount);
+				OutlookStore outlookStore = new(outlookAccount);
 				string pstFilePath = command.Parameters[0];
 
 				removedFolders = await outlookStore.RemoveEmptyFoldersAsync(
